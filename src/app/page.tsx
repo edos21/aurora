@@ -21,6 +21,7 @@ export default function Home() {
   const [spectraStatus, setSpectraStatus] = useState<SpectraStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   const checkSpectraConnection = async () => {
     setLoading(true)
@@ -42,8 +43,14 @@ export default function Home() {
   }
 
   useEffect(() => {
-    checkSpectraConnection()
+    setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (mounted) {
+      checkSpectraConnection()
+    }
+  }, [mounted])
 
   return (
     <div className="from-background via-background to-muted/20 min-h-screen bg-gradient-to-br p-8">
@@ -105,7 +112,11 @@ export default function Home() {
               <CardDescription>API de análisis financiero</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {spectraStatus ? (
+              {!mounted ? (
+                <div className="text-muted-foreground text-sm">
+                  🔄 Cargando...
+                </div>
+              ) : spectraStatus ? (
                 <>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground text-sm">
