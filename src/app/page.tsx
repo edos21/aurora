@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -18,10 +19,26 @@ interface SpectraStatus {
 }
 
 export default function Home() {
+  const router = useRouter()
   const [spectraStatus, setSpectraStatus] = useState<SpectraStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Verificación inmediata de autenticación antes del render
+  const hasToken = () => {
+    if (typeof window === 'undefined') return false
+
+    const localToken = localStorage.getItem('auth_token')
+    const cookieToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('auth_token='))
+      ?.split('=')[1]
+
+    return !!(localToken || cookieToken)
+  }
 
   const checkSpectraConnection = async () => {
     setLoading(true)
@@ -42,21 +59,62 @@ export default function Home() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token')
+    // Eliminar cookie también
+    document.cookie =
+      'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    router.push('/login')
+  }
+
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (mounted) {
+    if (mounted && hasToken()) {
+      setIsAuthenticated(true)
+      setIsCheckingAuth(false)
       checkSpectraConnection()
+    } else if (mounted) {
+      setIsCheckingAuth(false)
     }
   }, [mounted])
+
+  // Verificación inmediata - Si no hay token, redirigir antes de mostrar cualquier cosa
+  if (typeof window !== 'undefined' && !hasToken() && mounted) {
+    window.location.href = '/login'
+    return null
+  }
+
+  // Mostrar pantalla de carga mientras se verifica la autenticación
+  if (isCheckingAuth || !mounted) {
+    return (
+      <div className="from-background via-background to-muted/20 flex min-h-screen items-center justify-center bg-gradient-to-br p-8">
+        <div className="space-y-4 text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-blue-400"></div>
+          <p className="text-muted-foreground">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="from-background via-background to-muted/20 min-h-screen bg-gradient-to-br p-8">
       <div className="mx-auto max-w-4xl space-y-8">
         {/* Header */}
-        <div className="space-y-4 text-center">
+        <div className="relative space-y-4 text-center">
+          {isAuthenticated && (
+            <div className="absolute top-0 right-0">
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="border-muted-foreground/20 text-muted-foreground hover:bg-muted/10 bg-transparent"
+              >
+                Cerrar Sesión
+              </Button>
+            </div>
+          )}
           <div className="inline-block">
             <h1 className="bg-gradient-to-r from-blue-400 via-green-400 to-purple-400 bg-clip-text text-6xl font-bold text-transparent">
               ✨ Lumina

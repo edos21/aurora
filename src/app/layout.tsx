@@ -18,7 +18,10 @@ export const metadata: Metadata = {
     'Plataforma de seguimiento de inversiones personales - Dando luz a tus finanzas',
   keywords: ['inversiones', 'finanzas', 'portfolio', 'análisis financiero'],
   authors: [{ name: 'Lumina Project' }],
-  viewport: 'width=device-width, initial-scale=1',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+  },
 }
 
 export default function RootLayout({
