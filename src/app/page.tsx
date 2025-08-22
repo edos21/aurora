@@ -59,7 +59,7 @@ export default function DashboardPage() {
 
         {/* Error State */}
         {summaryError && (
-          <Alert>
+          <Alert className="border-destructive/20 bg-destructive/5">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               No se pudo conectar con el backend. Mostrando datos de ejemplo.
@@ -75,14 +75,14 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {summaryLoading ? (
             [...Array(4)].map((_, i) => (
-              <Card key={i}>
+              <Card key={i} className="border-[#15181E] bg-[#15181E]">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 w-20 animate-pulse rounded bg-[#0D0F12]" />
+                  <Skeleton className="h-4 w-4 animate-pulse rounded bg-[#0D0F12]" />
                 </CardHeader>
                 <CardContent>
-                  <Skeleton className="mb-2 h-8 w-24" />
-                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="mb-2 h-8 w-24 animate-pulse rounded bg-[#0D0F12]" />
+                  <Skeleton className="h-3 w-16 animate-pulse rounded bg-[#0D0F12]" />
                 </CardContent>
               </Card>
             ))

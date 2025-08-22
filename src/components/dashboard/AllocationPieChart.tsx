@@ -96,7 +96,7 @@ export default function AllocationPieChart({
   }))
 
   return (
-    <Card className={cn('bg-card border-border', className)}>
+    <Card className={cn('border-[#15181E] bg-[#15181E]', className)}>
       <CardHeader>
         <CardTitle className="text-card-foreground text-lg font-semibold">
           {title}

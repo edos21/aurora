@@ -33,12 +33,7 @@ export default function PortfolioSummaryCard({
   const Icon = iconMap[icon]
 
   return (
-    <Card
-      className={cn(
-        'bg-card border-border hover:bg-card/80 transition-colors',
-        className
-      )}
-    >
+    <Card className={cn('border-[#15181E] bg-[#15181E]', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-muted-foreground text-sm font-medium">
           {title}

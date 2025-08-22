@@ -20,7 +20,7 @@ export default function AnalysisPage() {
         </div>
 
         {/* Coming Soon Notice */}
-        <Card className="border-[#FBBF24]/20 bg-[#FBBF24]/5">
+        <Card className="border-[#15181E] bg-[#15181E]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-[#FBBF24]">
               🚧 Próximamente - Sprint 5
@@ -57,7 +57,7 @@ export default function AnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-dashed">
+              <Card className="border-dashed border-[#15181E] bg-[#15181E]">
                 <CardContent className="pt-6">
                   <div className="flex items-center space-x-3">
                     <BarChart3 className="text-muted-foreground h-8 w-8" />
@@ -71,7 +71,7 @@ export default function AnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-dashed">
+              <Card className="border-dashed border-[#15181E] bg-[#15181E]">
                 <CardContent className="pt-6">
                   <div className="flex items-center space-x-3">
                     <TrendingUp className="text-muted-foreground h-8 w-8" />
@@ -85,7 +85,7 @@ export default function AnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-dashed">
+              <Card className="border-dashed border-[#15181E] bg-[#15181E]">
                 <CardContent className="pt-6">
                   <div className="flex items-center space-x-3">
                     <Activity className="text-muted-foreground h-8 w-8" />

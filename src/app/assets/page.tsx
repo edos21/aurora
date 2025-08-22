@@ -242,20 +242,20 @@ export default function AssetsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             [...Array(6)].map((_, i) => (
-              <Card key={i}>
+              <Card key={i} className="border-[#15181E] bg-[#15181E]">
                 <CardHeader>
                   <div className="flex items-center space-x-2">
-                    <div className="bg-muted h-8 w-8 animate-pulse rounded" />
+                    <div className="h-8 w-8 animate-pulse rounded bg-[#0D0F12]" />
                     <div className="space-y-1">
-                      <div className="bg-muted h-4 w-20 animate-pulse rounded" />
-                      <div className="bg-muted h-3 w-16 animate-pulse rounded" />
+                      <div className="h-4 w-20 animate-pulse rounded bg-[#0D0F12]" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-[#0D0F12]" />
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="bg-muted h-4 animate-pulse rounded" />
-                    <div className="bg-muted h-3 w-3/4 animate-pulse rounded" />
+                    <div className="h-4 animate-pulse rounded bg-[#0D0F12]" />
+                    <div className="h-3 w-3/4 animate-pulse rounded bg-[#0D0F12]" />
                   </div>
                 </CardContent>
               </Card>
@@ -312,7 +312,7 @@ export default function AssetsPage() {
             ))
           ) : (
             <div className="col-span-full">
-              <Card>
+              <Card className="border-[#15181E] bg-[#15181E]">
                 <CardContent className="pt-6">
                   <div className="py-8 text-center">
                     <div className="mb-4 text-4xl">🔍</div>
