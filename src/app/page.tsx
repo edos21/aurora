@@ -1,276 +1,208 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import AppLayout from '@/components/layout/AppLayout'
+import PortfolioSummaryCard from '@/components/dashboard/PortfolioSummaryCard'
+import AllocationPieChart from '@/components/dashboard/AllocationPieChart'
+import RecentTransactionsTable from '@/components/dashboard/RecentTransactionsTable'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  usePortfolioSummary,
+  usePortfolioAllocation,
+} from '@/hooks/usePortfolio'
+import { useRecentTransactions } from '@/hooks/useTransactions'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle, Plus } from 'lucide-react'
+import Link from 'next/link'
 
-interface SpectraStatus {
-  status: string
-  service: string
-  version: string
-  timestamp: string
-}
+export default function DashboardPage() {
+  const {
+    data: portfolioSummary,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = usePortfolioSummary()
+  const { data: allocationByType, isLoading: allocationLoading } =
+    usePortfolioAllocation('type')
+  const { data: allocationByClassification } =
+    usePortfolioAllocation('classification')
+  const { data: recentTransactions, isLoading: transactionsLoading } =
+    useRecentTransactions(5)
 
-export default function Home() {
-  const router = useRouter()
-  const [spectraStatus, setSpectraStatus] = useState<SpectraStatus | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-
-  // Verificación inmediata de autenticación antes del render
-  const hasToken = () => {
-    if (typeof window === 'undefined') return false
-
-    const localToken = localStorage.getItem('auth_token')
-    const cookieToken = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('auth_token='))
-      ?.split('=')[1]
-
-    return !!(localToken || cookieToken)
+  // Usar datos reales del backend o valores por defecto
+  const displaySummary = portfolioSummary || {
+    total_value_usd: 0,
+    total_invested_usd: 0,
+    total_pnl_usd: 0,
+    total_pnl_pct: 0,
+    holdings_count: 0,
+    transactions_count: 0,
   }
 
-  const checkSpectraConnection = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch('http://localhost:8000/health')
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      setSpectraStatus(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-      setSpectraStatus(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token')
-    // Eliminar cookie también
-    document.cookie =
-      'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    router.push('/login')
-  }
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (mounted && hasToken()) {
-      setIsAuthenticated(true)
-      setIsCheckingAuth(false)
-      checkSpectraConnection()
-    } else if (mounted) {
-      setIsCheckingAuth(false)
-    }
-  }, [mounted])
-
-  // Verificación inmediata - Si no hay token, redirigir antes de mostrar cualquier cosa
-  if (typeof window !== 'undefined' && !hasToken() && mounted) {
-    window.location.href = '/login'
-    return null
-  }
-
-  // Mostrar pantalla de carga mientras se verifica la autenticación
-  if (isCheckingAuth || !mounted) {
-    return (
-      <div className="from-background via-background to-muted/20 flex min-h-screen items-center justify-center bg-gradient-to-br p-8">
-        <div className="space-y-4 text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-blue-400"></div>
-          <p className="text-muted-foreground">Verificando autenticación...</p>
-        </div>
-      </div>
-    )
-  }
+  const displayAllocation = Array.isArray(allocationByType)
+    ? allocationByType
+    : []
+  const displayTransactions = Array.isArray(recentTransactions)
+    ? recentTransactions
+    : []
 
   return (
-    <div className="from-background via-background to-muted/20 min-h-screen bg-gradient-to-br p-8">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <AppLayout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="relative space-y-4 text-center">
-          {isAuthenticated && (
-            <div className="absolute top-0 right-0">
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                className="border-muted-foreground/20 text-muted-foreground hover:bg-muted/10 bg-transparent"
-              >
-                Cerrar Sesión
-              </Button>
-            </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Vista general de tu portfolio de inversiones
+          </p>
+        </div>
+
+        {/* Error State */}
+        {summaryError && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              No se pudo conectar con el backend. Mostrando datos de ejemplo.
+              <br />
+              <span className="text-muted-foreground text-xs">
+                Verifica que Spectra esté ejecutándose en localhost:8000
+              </span>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {summaryLoading ? (
+            [...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="mb-2 h-8 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <>
+              <PortfolioSummaryCard
+                title="Valor Total"
+                value={`$${displaySummary.total_value_usd?.toLocaleString() || '0'}`}
+                change={{
+                  value: `${typeof displaySummary.total_pnl_pct === 'number' ? displaySummary.total_pnl_pct.toFixed(1) : '0'}%`,
+                  isPositive: (displaySummary.total_pnl_usd || 0) >= 0,
+                  period: 'total',
+                }}
+                icon="dollar"
+              />
+              <PortfolioSummaryCard
+                title="P&L Total"
+                value={`$${displaySummary.total_pnl_usd?.toLocaleString() || '0'}`}
+                change={{
+                  value: `${typeof displaySummary.total_pnl_pct === 'number' ? displaySummary.total_pnl_pct.toFixed(1) : '0'}%`,
+                  isPositive: (displaySummary.total_pnl_usd || 0) >= 0,
+                  period: 'ganancia',
+                }}
+                icon={
+                  (displaySummary.total_pnl_usd || 0) >= 0
+                    ? 'trend-up'
+                    : 'trend-down'
+                }
+              />
+              <PortfolioSummaryCard
+                title="Inversión Total"
+                value={`$${displaySummary.total_invested_usd?.toLocaleString() || '0'}`}
+                icon="activity"
+              />
+              <PortfolioSummaryCard
+                title="Activos"
+                value={`${displaySummary.holdings_count || 0}`}
+                change={{
+                  value: `${displaySummary.transactions_count || 0}`,
+                  isPositive: true,
+                  period: 'transacciones',
+                }}
+                icon="activity"
+              />
+            </>
           )}
-          <div className="inline-block">
-            <h1 className="bg-gradient-to-r from-blue-400 via-green-400 to-purple-400 bg-clip-text text-6xl font-bold text-transparent">
-              ✨ Lumina
-            </h1>
-            <p className="text-muted-foreground mt-2 text-xl">
-              Dando luz a tus finanzas
-            </p>
+        </div>
+
+        {/* Charts and Tables */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Allocation Chart */}
+          <div className="lg:col-span-1">
+            <AllocationPieChart
+              data={displayAllocation}
+              title="Allocation por Tipo"
+            />
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="lg:col-span-2">
+            <RecentTransactionsTable
+              transactions={displayTransactions}
+              isLoading={transactionsLoading}
+            />
           </div>
         </div>
 
-        {/* Stack Info */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+        {/* Connection Status */}
+        {summaryError && (
+          <Card className="border-destructive/20 bg-destructive/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                🎨 Aurora Frontend
+              <CardTitle className="text-destructive flex items-center gap-2">
+                ⚠️ Error de Conexión
               </CardTitle>
-              <CardDescription>
-                Interfaz de usuario desarrollada con Next.js
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">
-                  Framework:
-                </span>
-                <span className="text-sm font-medium">
-                  Next.js + TypeScript
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">UI:</span>
-                <span className="text-sm font-medium">
-                  shadcn/ui + TailwindCSS
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Tema:</span>
-                <span className="text-sm font-medium">Dark Mode 🌙</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Puerto:</span>
-                <span className="text-sm font-medium">3000</span>
-              </div>
+            <CardContent>
+              <p className="text-muted-foreground mb-2 text-sm">
+                No se pudo conectar con el backend Spectra:{' '}
+                {summaryError.message}
+              </p>
+              <ul className="text-muted-foreground space-y-1 text-xs">
+                <li>
+                  • Verifica que Spectra esté ejecutándose en localhost:8000
+                </li>
+                <li>
+                  • Revisa el estado del sistema en{' '}
+                  <a href="/health" className="text-primary hover:underline">
+                    /health
+                  </a>
+                </li>
+                <li>• Asegúrate de que la base de datos esté configurada</li>
+              </ul>
             </CardContent>
           </Card>
+        )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                ⚙️ Spectra Backend
-              </CardTitle>
-              <CardDescription>API de análisis financiero</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {!mounted ? (
-                <div className="text-muted-foreground text-sm">
-                  🔄 Cargando...
+        {/* Empty Portfolio */}
+        {!summaryError &&
+          !summaryLoading &&
+          displaySummary.holdings_count === 0 && (
+            <Card className="border-muted/20">
+              <CardContent className="pt-6">
+                <div className="py-8 text-center">
+                  <div className="mb-4 text-4xl">🏦</div>
+                  <h3 className="mb-2 text-lg font-medium">Portfolio Vacío</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Comienza agregando tus primeras transacciones para ver el
+                    dashboard
+                  </p>
+                  <Button asChild>
+                    <Link href="/transactions/new">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Nueva Transacción
+                    </Link>
+                  </Button>
                 </div>
-              ) : spectraStatus ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Estado:
-                    </span>
-                    <span className="text-sm font-medium text-green-400">
-                      {spectraStatus.status === 'healthy'
-                        ? '✅ Conectado'
-                        : '❌ Error'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Servicio:
-                    </span>
-                    <span className="text-sm font-medium">
-                      {spectraStatus.service}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Versión:
-                    </span>
-                    <span className="text-sm font-medium">
-                      {spectraStatus.version}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Puerto:
-                    </span>
-                    <span className="text-sm font-medium">8000</span>
-                  </div>
-                </>
-              ) : error ? (
-                <div className="text-sm text-red-400">❌ Error: {error}</div>
-              ) : (
-                <div className="text-muted-foreground text-sm">
-                  🔄 Verificando conexión...
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-center gap-4">
-          <Button
-            onClick={checkSpectraConnection}
-            disabled={loading}
-            variant="default"
-          >
-            {loading ? '🔄 Verificando...' : '🔄 Verificar Conexión'}
-          </Button>
-
-          <Button variant="outline" asChild>
-            <a
-              href="http://localhost:8000/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              📚 API Docs
-            </a>
-          </Button>
-        </div>
-
-        {/* Next Steps */}
-        <Card>
-          <CardHeader>
-            <CardTitle>🚀 Siguientes Pasos (Sprint 1)</CardTitle>
-            <CardDescription>
-              Funcionalidades a implementar en la siguiente fase
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">
-                <span className="text-muted-foreground">▪</span>
-                <span>Implementar CRUD de activos y transacciones</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-muted-foreground">▪</span>
-                <span>Configurar base de datos PostgreSQL</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-muted-foreground">▪</span>
-                <span>Crear dashboard principal con métricas</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-muted-foreground">▪</span>
-                <span>Desarrollar formularios de captura de datos</span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
       </div>
-    </div>
+    </AppLayout>
   )
 }
