@@ -13,11 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Coins, TrendingUp, ArrowRight } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  Coins,
+  TrendingUp,
+  ArrowRight,
+  Globe,
+  Database,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useAssets } from '@/hooks/useAssets'
 import { cn } from '@/lib/utils'
 import type { AssetType, AssetClassification } from '@/types'
+import { AssetDiscovery } from '@/components/assets'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { assetKeys } from '@/hooks/useAssets'
 
 export default function AssetsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -25,6 +37,9 @@ export default function AssetsPage() {
   const [classificationFilter, setClassificationFilter] = useState<
     AssetClassification | 'ALL'
   >('ALL')
+  const [showDiscovery, setShowDiscovery] = useState(false)
+
+  const queryClient = useQueryClient()
 
   const {
     data: assets,
@@ -102,15 +117,25 @@ export default function AssetsPage() {
               Gestiona los instrumentos financieros de tu portfolio
             </p>
           </div>
-          <Button
-            asChild
-            className="transform bg-gradient-to-r from-[#38BDF8] to-[#4ADE80] font-semibold text-[#0D0F12] transition-all duration-200 hover:scale-[1.02] hover:from-[#0EA5E9] hover:to-[#22C55E]"
-          >
-            <Link href="/assets/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Activo
-            </Link>
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => setShowDiscovery(true)}
+              variant="outline"
+              className="border-[#4ADE80] text-[#4ADE80] hover:bg-[#4ADE80] hover:text-[#0D0F12]"
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Descubrir Assets
+            </Button>
+            <Button
+              asChild
+              className="transform bg-gradient-to-r from-[#38BDF8] to-[#4ADE80] font-semibold text-[#0D0F12] transition-all duration-200 hover:scale-[1.02] hover:from-[#0EA5E9] hover:to-[#22C55E]"
+            >
+              <Link href="/assets/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Asset Personalizado
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -240,103 +265,77 @@ export default function AssetsPage() {
 
         {/* Assets List */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            [...Array(6)].map((_, i) => (
-              <Card key={i} className="border-[#15181E] bg-[#15181E]">
-                <CardHeader>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 w-8 animate-pulse rounded bg-[#0D0F12]" />
-                    <div className="space-y-1">
-                      <div className="h-4 w-20 animate-pulse rounded bg-[#0D0F12]" />
-                      <div className="h-3 w-16 animate-pulse rounded bg-[#0D0F12]" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-4 animate-pulse rounded bg-[#0D0F12]" />
-                    <div className="h-3 w-3/4 animate-pulse rounded bg-[#0D0F12]" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : filteredAssets.length > 0 ? (
-            filteredAssets.map(asset => (
-              <Card
-                key={asset.id}
-                className="group cursor-pointer border-[#15181E] bg-[#15181E] transition-all hover:border-[#4ADE80]/20 hover:bg-[#15181E]/80"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-2xl">
-                        {getAssetTypeIcon(asset.asset_type)}
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg text-[#E4E8F0] transition-colors group-hover:text-[#4ADE80]">
-                          {asset.ticker}
-                        </CardTitle>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'mt-1 text-xs',
-                            getAssetTypeColor(asset.asset_type)
-                          )}
-                        >
-                          {asset.asset_type}
-                        </Badge>
+          {isLoading
+            ? [...Array(6)].map((_, i) => (
+                <Card key={i} className="border-[#15181E] bg-[#15181E]">
+                  <CardHeader>
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 animate-pulse rounded bg-[#0D0F12]" />
+                      <div className="space-y-1">
+                        <div className="h-4 w-20 animate-pulse rounded bg-[#0D0F12]" />
+                        <div className="h-3 w-16 animate-pulse rounded bg-[#0D0F12]" />
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-[#A9B4C4] transition-colors group-hover:text-[#4ADE80]" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <h3 className="leading-tight font-medium text-[#E4E8F0]">
-                      {asset.name}
-                    </h3>
-                    <div className="flex items-center justify-between text-sm text-[#A9B4C4]">
-                      <span className="capitalize">
-                        {asset.classification.replace('_', ' ')}
-                      </span>
-                      <span>{asset.currency}</span>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="h-4 animate-pulse rounded bg-[#0D0F12]" />
+                      <div className="h-3 w-3/4 animate-pulse rounded bg-[#0D0F12]" />
                     </div>
-                    {asset.notes && (
-                      <p className="line-clamp-2 text-xs text-[#A9B4C4]">
-                        {asset.notes}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full">
-              <Card className="border-[#15181E] bg-[#15181E]">
-                <CardContent className="pt-6">
-                  <div className="py-8 text-center">
-                    <div className="mb-4 text-4xl">🔍</div>
-                    <h3 className="mb-2 text-lg font-medium">
-                      No se encontraron activos
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      {searchTerm ||
-                      typeFilter !== 'ALL' ||
-                      classificationFilter !== 'ALL'
-                        ? 'Intenta ajustar los filtros de búsqueda'
-                        : 'Comienza agregando tu primer activo al portfolio'}
-                    </p>
-                    <Button asChild>
-                      <Link href="/assets/new">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Agregar Activo
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  </CardContent>
+                </Card>
+              ))
+            : filteredAssets.length > 0
+              ? filteredAssets.map(asset => (
+                  <Card
+                    key={asset.id}
+                    className="group cursor-pointer border-[#15181E] bg-[#15181E] transition-all hover:border-[#4ADE80]/20 hover:bg-[#15181E]/80"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-2xl">
+                            {getAssetTypeIcon(asset.asset_type)}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg text-[#E4E8F0] transition-colors group-hover:text-[#4ADE80]">
+                              {asset.ticker}
+                            </CardTitle>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'mt-1 text-xs',
+                                getAssetTypeColor(asset.asset_type)
+                              )}
+                            >
+                              {asset.asset_type}
+                            </Badge>
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-[#A9B4C4] transition-colors group-hover:text-[#4ADE80]" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <h3 className="leading-tight font-medium text-[#E4E8F0]">
+                          {asset.name}
+                        </h3>
+                        <div className="flex items-center justify-between text-sm text-[#A9B4C4]">
+                          <span className="capitalize">
+                            {asset.classification.replace('_', ' ')}
+                          </span>
+                          <span>{asset.currency}</span>
+                        </div>
+                        {asset.notes && (
+                          <p className="line-clamp-2 text-xs text-[#A9B4C4]">
+                            {asset.notes}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              : null}
         </div>
 
         {/* Error Notice */}
@@ -355,28 +354,79 @@ export default function AssetsPage() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && displayAssets.length === 0 && (
+        {!isLoading && !error && filteredAssets.length === 0 && (
           <div className="col-span-full">
-            <Card>
+            <Card className="border-[#15181E] bg-[#15181E]">
               <CardContent className="pt-6">
                 <div className="py-8 text-center">
-                  <div className="mb-4 text-4xl">🏦</div>
-                  <h3 className="mb-2 text-lg font-medium">No hay activos</h3>
+                  <div className="mb-4 text-4xl">
+                    {displayAssets.length === 0 ? '🏦' : '🔍'}
+                  </div>
+                  <h3 className="mb-2 text-lg font-medium">
+                    {displayAssets.length === 0
+                      ? 'No hay activos'
+                      : 'No se encontraron activos'}
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    Comienza agregando tu primer activo al portfolio
+                    {displayAssets.length === 0
+                      ? 'Comienza agregando tu primer activo al portfolio'
+                      : searchTerm ||
+                          typeFilter !== 'ALL' ||
+                          classificationFilter !== 'ALL'
+                        ? 'Intenta ajustar los filtros de búsqueda'
+                        : 'Comienza agregando tu primer activo al portfolio'}
                   </p>
-                  <Button asChild>
-                    <Link href="/assets/new">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agregar Activo
-                    </Link>
-                  </Button>
+                  <div className="flex justify-center space-x-2">
+                    <Button
+                      onClick={() => setShowDiscovery(true)}
+                      variant="outline"
+                      className="border-[#4ADE80] text-[#4ADE80] hover:bg-[#4ADE80] hover:text-[#0D0F12]"
+                    >
+                      <Globe className="mr-2 h-4 w-4" />
+                      Descubrir Assets
+                    </Button>
+                    <Button asChild>
+                      <Link href="/assets/new">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Asset Personalizado
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Asset Discovery Modal */}
+      {showDiscovery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-[#0D0F12]">
+            <AssetDiscovery
+              onAssetSelected={asset => {
+                console.log('Asset selected:', asset)
+                setShowDiscovery(false)
+
+                // Invalidar el cache de assets para refrescar la lista
+                queryClient.invalidateQueries({ queryKey: assetKeys.lists() })
+
+                // Mostrar toast de confirmación
+                if ('source' in asset && asset.source === 'manual') {
+                  toast.success(
+                    `Asset personalizado "${asset.ticker}" creado exitosamente`
+                  )
+                } else {
+                  toast.success(
+                    `Asset "${asset.ticker}" agregado desde ${'source' in asset ? asset.source : 'fuente externa'}`
+                  )
+                }
+              }}
+              onCancel={() => setShowDiscovery(false)}
+            />
+          </div>
+        </div>
+      )}
     </AppLayout>
   )
 }

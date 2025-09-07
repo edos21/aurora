@@ -1,11 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { apiClient, API_ENDPOINTS, APIError } from '@/lib/api'
+import { toast } from 'sonner'
 
 interface User {
   id: string
   username: string
   email: string
+  created_at: string
+  updated_at: string | null
+}
+
+interface LoginCredentials {
+  username: string
+  password: string
+}
+
+interface LoginResponse {
+  user_id: string
+  username: string
+  email: string
+  account_id: string
+  token: {
+    access_token: string
+    refresh_token: string
+    token_type: string
+    expires_in: number
+  }
 }
 
 interface AuthState {
@@ -15,7 +37,7 @@ interface AuthState {
   isAuthenticated: boolean
 }
 
-export function useAuth(): AuthState {
+export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     token: null,
@@ -23,123 +45,39 @@ export function useAuth(): AuthState {
     isAuthenticated: false,
   })
 
-  useEffect(() => {
-    const checkAuth = async () => {
+  // Check authentication status
+  const checkAuth = useCallback(async () => {
+    try {
+      const token = apiClient.getToken()
+
+      if (!token) {
+        setAuthState({
+          user: null,
+          token: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
+        return
+      }
+
+      // Try to get user info with current token
       try {
-        // Verificar token en localStorage
-        const token = localStorage.getItem('auth_token')
+        const userData = await apiClient.get<User>(API_ENDPOINTS.USER_ME)
 
-        if (!token) {
-          setAuthState({
-            user: null,
-            token: null,
-            isLoading: false,
-            isAuthenticated: false,
-          })
-          return
-        }
-
-        // Si el token es 'authenticated', intentar obtener datos reales del backend
-        if (token === 'authenticated') {
-          try {
-            const response = await fetch(
-              'http://localhost:8000/api/v1/users/me',
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-              }
-            )
-
-            if (response.ok) {
-              const userData = await response.json()
-              if (process.env.NODE_ENV === 'development') {
-                console.log('✅ Datos reales del backend obtenidos:', userData)
-              }
-
-              setAuthState({
-                user: userData,
-                token,
-                isLoading: false,
-                isAuthenticated: true,
-              })
-              return
-            } else {
-              // Token inválido o backend respondió con error
-              localStorage.removeItem('auth_token')
-              document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
-
-              setAuthState({
-                user: null,
-                token: null,
-                isLoading: false,
-                isAuthenticated: false,
-              })
-              return
-            }
-          } catch (apiError) {
-            // Backend no disponible, limpiar autenticación
-            localStorage.removeItem('auth_token')
-            document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
-
-            setAuthState({
-              user: null,
-              token: null,
-              isLoading: false,
-              isAuthenticated: false,
-            })
-            return
-          }
-        }
-
-        // Si hay token real, intentar obtener información del usuario desde API
-        try {
-          const response = await fetch(
-            'http://localhost:8000/api/v1/users/me',
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          )
-
-          if (response.ok) {
-            const userData = await response.json()
-
-            setAuthState({
-              user: userData,
-              token,
-              isLoading: false,
-              isAuthenticated: true,
-            })
-          } else {
-            // Token inválido, limpiar autenticación
-            localStorage.removeItem('auth_token')
-            document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
-
-            setAuthState({
-              user: null,
-              token: null,
-              isLoading: false,
-              isAuthenticated: false,
-            })
-          }
-        } catch (apiError) {
-          // Backend no disponible, limpiar autenticación
-          localStorage.removeItem('auth_token')
-          document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
-
-          setAuthState({
-            user: null,
-            token: null,
-            isLoading: false,
-            isAuthenticated: false,
-          })
-        }
+        setAuthState({
+          user: userData,
+          token,
+          isLoading: false,
+          isAuthenticated: true,
+        })
       } catch (error) {
-        console.error('💥 Error en checkAuth:', error)
+        // Token is invalid or expired
+        if (error instanceof APIError && error.status === 401) {
+          // Clear invalid token
+          apiClient.setToken(null)
+          localStorage.removeItem('refresh_token')
+        }
+
         setAuthState({
           user: null,
           token: null,
@@ -147,10 +85,90 @@ export function useAuth(): AuthState {
           isAuthenticated: false,
         })
       }
+    } catch (error) {
+      console.error('Error checking auth:', error)
+      setAuthState({
+        user: null,
+        token: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
     }
-
-    checkAuth()
   }, [])
 
-  return authState
+  // Login function
+  const login = useCallback(
+    async (credentials: LoginCredentials): Promise<boolean> => {
+      try {
+        setAuthState(prev => ({ ...prev, isLoading: true }))
+
+        const response = await apiClient.post<LoginResponse>(
+          API_ENDPOINTS.AUTH_LOGIN,
+          credentials
+        )
+
+        // Store tokens
+        apiClient.setToken(response.token.access_token)
+        localStorage.setItem('refresh_token', response.token.refresh_token)
+
+        // Get user data
+        const userData = await apiClient.get<User>(API_ENDPOINTS.USER_ME)
+
+        setAuthState({
+          user: userData,
+          token: response.token.access_token,
+          isLoading: false,
+          isAuthenticated: true,
+        })
+
+        // Redirect after successful login
+        setTimeout(() => {
+          toast.success('¡Inicio de sesión exitoso!')
+          window.location.href = '/'
+        }, 100)
+
+        return true
+      } catch (error) {
+        console.error('Login failed:', error)
+        setAuthState(prev => ({ ...prev, isLoading: false }))
+        return false
+      }
+    },
+    []
+  )
+
+  // Logout function
+  const logout = useCallback(async () => {
+    try {
+      // Call logout endpoint if authenticated
+      if (authState.isAuthenticated) {
+        await apiClient.post(API_ENDPOINTS.AUTH_LOGOUT)
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      // Clear tokens and state
+      apiClient.setToken(null)
+      localStorage.removeItem('refresh_token')
+
+      setAuthState({
+        user: null,
+        token: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
+    }
+  }, [authState.isAuthenticated])
+
+  // Initialize auth state on mount
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  return {
+    ...authState,
+    login,
+    logout,
+    checkAuth,
+  }
 }
