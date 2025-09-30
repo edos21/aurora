@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AssetSearch } from './AssetSearch'
 import { AssetConfirmation } from './AssetConfirmation'
-import { CustomAssetForm } from './CustomAssetForm'
 import { apiClient, API_ENDPOINTS } from '@/lib/api'
 import { toast } from 'sonner'
 
@@ -37,7 +36,7 @@ interface CustomAssetData {
   notes?: string
 }
 
-type DiscoveryStep = 'search' | 'confirmation' | 'custom'
+type DiscoveryStep = 'search' | 'confirmation'
 
 interface AssetDiscoveryProps {
   onAssetSelected: (asset: AssetSearchResult | CustomAssetData) => void
@@ -89,24 +88,6 @@ export function AssetDiscovery({
     }
   }
 
-  const handleCustomAsset = () => {
-    setCurrentStep('custom')
-  }
-
-  const handleCustomAssetSave = async (assetData: CustomAssetData) => {
-    setIsProcessing(true)
-    try {
-      // Create custom asset
-      await createCustomAsset(assetData)
-      onAssetSelected(assetData)
-    } catch (error) {
-      console.error('Error creating custom asset:', error)
-      toast.error('Error al crear el asset personalizado. Intenta de nuevo.')
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
   const handleBackToSearch = () => {
     setCurrentStep('search')
     setSelectedAsset(null)
@@ -141,36 +122,10 @@ export function AssetDiscovery({
     }
   }
 
-  const createCustomAsset = async (
-    assetData: CustomAssetData
-  ): Promise<void> => {
-    try {
-      await apiClient.post(API_ENDPOINTS.ASSETS, {
-        ...assetData,
-        source: 'manual',
-        is_popular: false,
-        sync_frequency_hours: 0, // No automatic sync for manual assets
-      })
-
-      toast.success(
-        `Asset personalizado "${assetData.ticker}" creado exitosamente`
-      )
-    } catch (error) {
-      console.error('Error creating custom asset:', error)
-      toast.error('Error al crear el asset personalizado. Intenta de nuevo.')
-      throw error
-    }
-  }
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 'search':
-        return (
-          <AssetSearch
-            onAssetSelect={handleAssetSelect}
-            onCustomAsset={handleCustomAsset}
-          />
-        )
+        return <AssetSearch onAssetSelect={handleAssetSelect} />
 
       case 'confirmation':
         if (!selectedAsset) {
@@ -190,26 +145,6 @@ export function AssetDiscovery({
             asset={selectedAsset}
             onConfirm={handleAssetConfirm}
             onCancel={handleBackToSearch}
-            onCustomAsset={handleCustomAsset}
-          />
-        )
-
-      case 'custom':
-        return (
-          <CustomAssetForm
-            onSave={handleCustomAssetSave}
-            onCancel={handleBackToSearch}
-            initialData={
-              selectedAsset
-                ? {
-                    ticker: selectedAsset.ticker,
-                    name: selectedAsset.name,
-                    asset_type: selectedAsset.asset_type as any,
-                    classification: selectedAsset.classification as any,
-                    currency: selectedAsset.currency,
-                  }
-                : undefined
-            }
           />
         )
 
@@ -224,8 +159,6 @@ export function AssetDiscovery({
         return 'Descubrir Assets'
       case 'confirmation':
         return 'Confirmar Asset'
-      case 'custom':
-        return 'Crear Asset Personalizado'
       default:
         return 'Asset Discovery'
     }
@@ -237,8 +170,6 @@ export function AssetDiscovery({
         return 'Busca assets existentes, populares o crea uno personalizado'
       case 'confirmation':
         return 'Revisa los detalles del asset antes de confirmarlo'
-      case 'custom':
-        return 'Define un asset personalizado con tus especificaciones'
       default:
         return ''
     }
@@ -309,25 +240,6 @@ export function AssetDiscovery({
             2
           </div>
           <span className="text-sm font-medium">Confirmación</span>
-        </div>
-
-        <div className="bg-muted h-px w-8" />
-
-        <div
-          className={`flex items-center space-x-2 ${
-            currentStep === 'custom' ? 'text-primary' : 'text-muted-foreground'
-          }`}
-        >
-          <div
-            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-              currentStep === 'custom'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted'
-            }`}
-          >
-            3
-          </div>
-          <span className="text-sm font-medium">Personalizado</span>
         </div>
       </div>
 

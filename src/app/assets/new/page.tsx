@@ -37,6 +37,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api'
+import { useAuth } from '@/hooks/useAuth'
 import type { AssetCreate, AssetType, AssetClassification } from '@/types'
 
 // Schemas de validación usando los tipos existentes
@@ -101,6 +102,7 @@ const commonCurrencies = [
 
 export default function NewAssetPage() {
   const router = useRouter()
+  const { accountId, isAuthenticated } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -120,6 +122,13 @@ export default function NewAssetPage() {
     setError(null)
     setIsSubmitting(true)
 
+    if (!isAuthenticated || !accountId) {
+      setError('Debes estar autenticado para crear un activo personalizado')
+      toast.error('Debes estar autenticado para crear un activo personalizado')
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       const assetData: AssetCreate = {
         ticker: values.ticker.toUpperCase(),
@@ -128,6 +137,7 @@ export default function NewAssetPage() {
         classification: values.classification as AssetClassification,
         currency: values.currency.toUpperCase(),
         notes: values.notes || undefined,
+        account_id: accountId,
       }
 
       await apiClient.post(API_ENDPOINTS.ASSETS, assetData)

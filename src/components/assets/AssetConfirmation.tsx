@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Check, AlertCircle, Info } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,14 +29,12 @@ interface AssetConfirmationProps {
   asset: AssetSearchResult
   onConfirm: (asset: AssetSearchResult) => void
   onCancel: () => void
-  onCustomAsset: () => void
 }
 
 export function AssetConfirmation({
   asset,
   onConfirm,
   onCancel,
-  onCustomAsset,
 }: AssetConfirmationProps) {
   const [isConfirming, setIsConfirming] = useState(false)
 
@@ -224,13 +223,11 @@ export function AssetConfirmation({
               >
                 Cancelar
               </Button>
-              <Button
-                variant="outline"
-                onClick={onCustomAsset}
-                disabled={isConfirming}
-              >
-                Crear Personalizado
-              </Button>
+              <Link href="/assets/new">
+                <Button variant="outline" disabled={isConfirming}>
+                  Crear Personalizado
+                </Button>
+              </Link>
             </div>
 
             <Button

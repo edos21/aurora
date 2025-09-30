@@ -1,8 +1,16 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Search, TrendingUp, Database, Plus } from 'lucide-react'
+import {
+  Search,
+  TrendingUp,
+  Database,
+  Plus,
+  Coins,
+  BarChart3,
+} from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,19 +37,22 @@ interface AssetSearchResult {
 
 interface AssetSearchProps {
   onAssetSelect: (asset: AssetSearchResult) => void
-  onCustomAsset: () => void
   className?: string
 }
 
-export function AssetSearch({
-  onAssetSelect,
-  onCustomAsset,
-  className,
-}: AssetSearchProps) {
+export function AssetSearch({ onAssetSelect, className }: AssetSearchProps) {
   const [query, setQuery] = useState('')
-  const [searchType, setSearchType] = useState<'all' | 'existing' | 'popular'>(
-    'all'
-  )
+  const [selectedService, setSelectedService] = useState<
+    'existing' | 'coingecko' | 'yfinance'
+  >('existing')
+
+  // Clear query when service changes
+  const handleServiceChange = (
+    service: 'existing' | 'coingecko' | 'yfinance'
+  ) => {
+    setSelectedService(service)
+    setQuery('') // Clear search query when switching services
+  }
 
   // Search existing assets
   const { data: existingAssets, isLoading: existingLoading } = useQuery({
@@ -55,55 +66,86 @@ export function AssetSearch({
       })
       return Array.isArray(response) ? response : []
     },
-    enabled:
-      query.length >= 2 && (searchType === 'all' || searchType === 'existing'),
+    enabled: query.length >= 2 && selectedService === 'existing',
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
-  // Get popular assets
-  const { data: popularAssets, isLoading: popularLoading } = useQuery({
-    queryKey: ['assets', 'popular', 'crypto'],
+  // Search CoinGecko assets
+  const { data: coingeckoAssets, isLoading: coingeckoLoading } = useQuery({
+    queryKey: ['assets', 'search', query, 'coingecko'],
     queryFn: async (): Promise<AssetSearchResult[]> => {
-      const response = await apiClient.get(`/api/v1/assets/popular`, {
-        asset_type: 'CRYPTO',
-        limit: '50',
+      if (!query || query.length < 2) return []
+
+      const response = await apiClient.get(`/api/v1/assets/search/external`, {
+        query: query,
+        service: 'coingecko',
+        limit: '20',
       })
       return Array.isArray(response) ? response : []
     },
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    enabled: searchType === 'all' || searchType === 'popular',
+    enabled: query.length >= 2 && selectedService === 'coingecko',
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
-  // Filter and combine results
+  // Search yfinance assets
+  const { data: yfinanceAssets, isLoading: yfinanceLoading } = useQuery({
+    queryKey: ['assets', 'search', query, 'yfinance'],
+    queryFn: async (): Promise<AssetSearchResult[]> => {
+      if (!query || query.length < 2) return []
+
+      const response = await apiClient.get(`/api/v1/assets/search/external`, {
+        query: query,
+        service: 'yfinance',
+        limit: '20',
+      })
+      return Array.isArray(response) ? response : []
+    },
+    enabled: query.length >= 2 && selectedService === 'yfinance',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+
+  // Get popular assets for the selected service when no query
+  const { data: popularAssets, isLoading: popularLoading } = useQuery({
+    queryKey: ['assets', 'popular', selectedService],
+    queryFn: async (): Promise<AssetSearchResult[]> => {
+      if (selectedService === 'existing') return []
+
+      const assetType = selectedService === 'coingecko' ? 'CRYPTO' : 'STOCK'
+      const response = await apiClient.get(`/api/v1/assets/popular`, {
+        asset_type: assetType,
+        limit: '20',
+      })
+      return Array.isArray(response) ? response : []
+    },
+    enabled: (!query || query.length < 2) && selectedService !== 'existing',
+    staleTime: 15 * 60 * 1000, // 15 minutes
+  })
+
+  // Get current results based on selected service
   const searchResults = useMemo(() => {
     const results: AssetSearchResult[] = []
 
-    // Add existing assets first
-    if (
-      Array.isArray(existingAssets) &&
-      (searchType === 'all' || searchType === 'existing')
-    ) {
+    // Add results based on selected service
+    if (selectedService === 'existing' && Array.isArray(existingAssets)) {
       results.push(...existingAssets)
-    }
-
-    // Add popular assets that match query
-    if (
-      Array.isArray(popularAssets) &&
-      (searchType === 'all' || searchType === 'popular')
+    } else if (
+      selectedService === 'coingecko' &&
+      Array.isArray(coingeckoAssets)
     ) {
-      const matchingPopular = popularAssets.filter(
-        (asset: AssetSearchResult) => {
-          if (!query) return true
-          return (
-            asset.ticker.toLowerCase().includes(query.toLowerCase()) ||
-            asset.name.toLowerCase().includes(query.toLowerCase())
-          )
-        }
-      )
-      results.push(...matchingPopular)
+      results.push(...coingeckoAssets)
+    } else if (
+      selectedService === 'yfinance' &&
+      Array.isArray(yfinanceAssets)
+    ) {
+      results.push(...yfinanceAssets)
     }
 
-    // Remove duplicates (prioritize existing assets)
+    // If no search query, show popular assets for the selected service
+    if ((!query || query.length < 2) && Array.isArray(popularAssets)) {
+      results.push(...popularAssets)
+    }
+
+    // Remove duplicates
     const seen = new Set()
     return results.filter(asset => {
       const key = asset.ticker.toLowerCase()
@@ -111,7 +153,14 @@ export function AssetSearch({
       seen.add(key)
       return true
     })
-  }, [existingAssets, popularAssets, searchType, query])
+  }, [
+    existingAssets,
+    coingeckoAssets,
+    yfinanceAssets,
+    popularAssets,
+    selectedService,
+    query,
+  ])
 
   const handleAssetSelect = useCallback(
     (asset: AssetSearchResult) => {
@@ -174,15 +223,16 @@ export function AssetSearch({
           <h3 className="text-lg font-semibold">Buscar Assets</h3>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onCustomAsset}
-          className="flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Asset Personalizado</span>
-        </Button>
+        <Link href="/assets/new">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Asset Personalizado</span>
+          </Button>
+        </Link>
       </div>
 
       {/* Search Input */}
@@ -196,44 +246,62 @@ export function AssetSearch({
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
       </div>
 
-      {/* Search Type Tabs */}
+      {/* Service Selection Tabs */}
       <div className="flex space-x-2">
         <Button
-          variant={searchType === 'all' ? 'default' : 'outline'}
+          variant={selectedService === 'existing' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setSearchType('all')}
-        >
-          Todos
-        </Button>
-        <Button
-          variant={searchType === 'existing' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSearchType('existing')}
+          onClick={() => handleServiceChange('existing')}
         >
           <Database className="mr-2 h-4 w-4" />
           Existentes
         </Button>
         <Button
-          variant={searchType === 'popular' ? 'default' : 'outline'}
+          variant={selectedService === 'coingecko' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setSearchType('popular')}
+          onClick={() => handleServiceChange('coingecko')}
         >
-          <TrendingUp className="mr-2 h-4 w-4" />
-          Populares
+          <Coins className="mr-2 h-4 w-4" />
+          CoinGecko
+        </Button>
+        <Button
+          variant={selectedService === 'yfinance' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => handleServiceChange('yfinance')}
+        >
+          <BarChart3 className="mr-2 h-4 w-4" />
+          yfinance
         </Button>
       </div>
 
       {/* Search Results */}
       <div className="space-y-3">
-        {query.length < 2 && searchType === 'all' && (
+        {query.length < 2 && selectedService !== 'existing' && (
           <div className="text-muted-foreground py-8 text-center">
-            <TrendingUp className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
-            <p className="text-lg font-medium">Assets Populares</p>
-            <p className="text-sm">Los assets más populares aparecerán aquí</p>
+            {selectedService === 'coingecko' ? (
+              <>
+                <Coins className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
+                <p className="text-lg font-medium">Cryptos Populares</p>
+                <p className="text-sm">
+                  Los cryptos más populares aparecerán aquí
+                </p>
+              </>
+            ) : (
+              <>
+                <BarChart3 className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
+                <p className="text-lg font-medium">Stocks y ETFs Populares</p>
+                <p className="text-sm">
+                  Los stocks y ETFs más populares aparecerán aquí
+                </p>
+              </>
+            )}
           </div>
         )}
 
-        {query.length >= 2 && (existingLoading || popularLoading) && (
+        {(existingLoading ||
+          coingeckoLoading ||
+          yfinanceLoading ||
+          popularLoading) && (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i}>
@@ -335,14 +403,21 @@ export function AssetSearch({
 
         {query.length >= 2 &&
           !existingLoading &&
+          !coingeckoLoading &&
+          !yfinanceLoading &&
           !popularLoading &&
           searchResults.length === 0 && (
             <div className="text-muted-foreground py-8 text-center">
               <Search className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
               <p className="text-lg font-medium">No se encontraron assets</p>
               <p className="text-sm">
-                Intenta con otro término de búsqueda o crea un asset
-                personalizado
+                Intenta con otro término de búsqueda en{' '}
+                {selectedService === 'coingecko'
+                  ? 'CoinGecko'
+                  : selectedService === 'yfinance'
+                    ? 'yfinance'
+                    : 'assets existentes'}{' '}
+                o crea un asset personalizado
               </p>
             </div>
           )}

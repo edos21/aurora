@@ -1,7 +1,6 @@
 export { AssetDiscovery } from './AssetDiscovery'
 export { AssetSearch } from './AssetSearch'
 export { AssetConfirmation } from './AssetConfirmation'
-export { CustomAssetForm } from './CustomAssetForm'
 
 // Types
 export interface AssetSearchResult {

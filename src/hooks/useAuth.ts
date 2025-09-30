@@ -8,6 +8,7 @@ interface User {
   id: string
   username: string
   email: string
+  account_id?: string
   created_at: string
   updated_at: string | null
 }
@@ -33,6 +34,7 @@ interface LoginResponse {
 interface AuthState {
   user: User | null
   token: string | null
+  accountId: string | null
   isLoading: boolean
   isAuthenticated: boolean
 }
@@ -41,6 +43,7 @@ export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     token: null,
+    accountId: null,
     isLoading: true,
     isAuthenticated: false,
   })
@@ -54,6 +57,7 @@ export function useAuth() {
         setAuthState({
           user: null,
           token: null,
+          accountId: null,
           isLoading: false,
           isAuthenticated: false,
         })
@@ -67,6 +71,7 @@ export function useAuth() {
         setAuthState({
           user: userData,
           token,
+          accountId: userData.account_id || null,
           isLoading: false,
           isAuthenticated: true,
         })
@@ -81,6 +86,7 @@ export function useAuth() {
         setAuthState({
           user: null,
           token: null,
+          accountId: null,
           isLoading: false,
           isAuthenticated: false,
         })
@@ -90,6 +96,7 @@ export function useAuth() {
       setAuthState({
         user: null,
         token: null,
+        accountId: null,
         isLoading: false,
         isAuthenticated: false,
       })
@@ -117,6 +124,7 @@ export function useAuth() {
         setAuthState({
           user: userData,
           token: response.token.access_token,
+          accountId: userData.account_id || response.account_id,
           isLoading: false,
           isAuthenticated: true,
         })
@@ -154,6 +162,7 @@ export function useAuth() {
       setAuthState({
         user: null,
         token: null,
+        accountId: null,
         isLoading: false,
         isAuthenticated: false,
       })
