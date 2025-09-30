@@ -30,6 +30,7 @@ export interface AssetCreate {
   currency: string
   notes?: string
   extra_data?: Record<string, any>
+  account_id?: string
 }
 
 // Transaction Types

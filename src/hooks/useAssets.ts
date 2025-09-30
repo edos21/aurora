@@ -24,17 +24,10 @@ export function useAssets(searchParams?: AssetSearch) {
         params.classification = searchParams.classification
       if (searchParams?.limit) params.limit = searchParams.limit.toString()
 
-      return apiClient
-        .get<{
-          assets: AssetResponse[]
-          total: number
-          limit: number
-          offset: number
-        }>(
-          API_ENDPOINTS.ASSETS,
-          Object.keys(params).length > 0 ? params : undefined
-        )
-        .then(response => response.assets || [])
+      return apiClient.get<AssetResponse[]>(
+        API_ENDPOINTS.ASSETS,
+        Object.keys(params).length > 0 ? params : undefined
+      )
     },
     staleTime: 10 * 60 * 1000, // 10 minutes - assets don't change often
     retry: 2,

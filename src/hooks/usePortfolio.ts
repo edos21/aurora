@@ -64,11 +64,14 @@ export function usePortfolioAllocation(
 ) {
   return useQuery({
     queryKey: portfolioKeys.allocation(groupBy),
-    queryFn: () =>
-      apiClient.get<AllocationByType[] | AllocationByClassification[]>(
-        API_ENDPOINTS.PORTFOLIO_ALLOCATION,
-        { group_by: groupBy }
-      ),
+    queryFn: async () => {
+      const holdings = await apiClient.get<PortfolioHoldings>(
+        API_ENDPOINTS.PORTFOLIO_HOLDINGS
+      )
+      return groupBy === 'type'
+        ? holdings.summary.allocation_by_type
+        : holdings.summary.allocation_by_classification
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes for allocation
     retry: 2,
   })
