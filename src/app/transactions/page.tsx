@@ -18,7 +18,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useTransactions } from '@/hooks/useTransactions'
-import { cn } from '@/lib/utils'
+import { cn, formatNumber, formatQuantity } from '@/lib/utils'
 import type { AssetType, TransactionType } from '@/types'
 
 export default function TransactionsPage() {
@@ -30,10 +30,8 @@ export default function TransactionsPage() {
 
   const { data: transactions, isLoading, error } = useTransactions()
 
-  // Asegurar que transactions sea siempre un array
   const displayTransactions = Array.isArray(transactions) ? transactions : []
 
-  // Filter transactions
   const filteredTransactions = displayTransactions.filter(transaction => {
     const matchesSearch =
       !searchTerm ||
@@ -220,17 +218,21 @@ export default function TransactionsPage() {
                           </Badge>
                         </div>
                         <div className="flex items-center space-x-4 text-sm text-[#A9B4C4]">
-                          <span>{transaction.quantity} unidades</span>
+                          <span>
+                            {formatQuantity(transaction.quantity)} unidades
+                          </span>
                           <span>
                             {format(new Date(transaction.date), 'dd MMM yyyy', {
                               locale: es,
                             })}
                           </span>
                           <span>
-                            ${transaction.price_per_unit.toLocaleString()}/u
+                            ${formatNumber(transaction.price_per_unit)}/u
                           </span>
                           {transaction.commission > 0 && (
-                            <span>Comisión: ${transaction.commission}</span>
+                            <span>
+                              Comisión: ${formatNumber(transaction.commission)}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -247,7 +249,7 @@ export default function TransactionsPage() {
                         )}
                       >
                         {transaction.type === 'BUY' ? '-' : '+'}$
-                        {transaction.total_amount.toLocaleString()}
+                        {formatNumber(transaction.total_amount)}
                       </p>
                       <p className="text-xs text-[#A9B4C4]">
                         {transaction.currency}

@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
+import { formatNumber, formatPercentage } from '@/lib/utils'
 
 export default function DashboardPage() {
   const {
@@ -90,9 +91,9 @@ export default function DashboardPage() {
             <>
               <PortfolioSummaryCard
                 title="Valor Total"
-                value={`$${displaySummary.total_value_usd?.toLocaleString() || '0'}`}
+                value={`$${formatNumber(displaySummary.total_value_usd || 0)}`}
                 change={{
-                  value: `${typeof displaySummary.total_pnl_pct === 'number' ? displaySummary.total_pnl_pct.toFixed(1) : '0'}%`,
+                  value: `${formatPercentage(displaySummary.total_pnl_pct)}%`,
                   isPositive: (displaySummary.total_pnl_usd || 0) >= 0,
                   period: 'total',
                 }}
@@ -100,9 +101,9 @@ export default function DashboardPage() {
               />
               <PortfolioSummaryCard
                 title="P&L Total"
-                value={`$${displaySummary.total_pnl_usd?.toLocaleString() || '0'}`}
+                value={`$${formatNumber(displaySummary.total_pnl_usd || 0)}`}
                 change={{
-                  value: `${typeof displaySummary.total_pnl_pct === 'number' ? displaySummary.total_pnl_pct.toFixed(1) : '0'}%`,
+                  value: `${formatPercentage(displaySummary.total_pnl_pct)}%`,
                   isPositive: (displaySummary.total_pnl_usd || 0) >= 0,
                   period: 'ganancia',
                 }}
@@ -114,7 +115,7 @@ export default function DashboardPage() {
               />
               <PortfolioSummaryCard
                 title="Inversión Total"
-                value={`$${displaySummary.total_invested_usd?.toLocaleString() || '0'}`}
+                value={`$${formatNumber(displaySummary.total_invested_usd || 0)}`}
                 icon="activity"
               />
               <PortfolioSummaryCard
@@ -138,6 +139,7 @@ export default function DashboardPage() {
             <AllocationPieChart
               data={displayAllocation}
               title="Allocation por Tipo"
+              isLoading={allocationLoading}
             />
           </div>
 

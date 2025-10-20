@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import {
   PieChart,
   Pie,
@@ -9,13 +10,14 @@ import {
   Legend,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { cn, formatNumber, formatPercentage } from '@/lib/utils'
 import type { AllocationByType, AllocationByClassification } from '@/types'
 
 interface AllocationPieChartProps {
   data: AllocationByType[] | AllocationByClassification[]
   title: string
   className?: string
+  isLoading?: boolean
 }
 
 // Lumina color palette for charts
@@ -37,10 +39,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="border-border bg-popover rounded-lg border p-3 shadow-2xl backdrop-blur-sm">
         <p className="text-popover-foreground font-medium">{data.name}</p>
         <p className="text-muted-foreground text-sm">
-          ${data.value_usd?.toLocaleString() || 0}
+          ${formatNumber(data.value_usd || 0)}
         </p>
         <p className="text-primary text-sm">
-          {data.allocation_pct?.toFixed(1)}% del portfolio
+          {formatPercentage(data.allocation_pct)}% del portfolio
         </p>
         <p className="text-muted-foreground text-xs">
           {data.count} activo{data.count > 1 ? 's' : ''}
@@ -75,7 +77,7 @@ const renderCustomizedLabel = ({
       dominantBaseline="central"
       className="text-xs font-medium"
     >
-      {`${(percent * 100).toFixed(0)}%`}
+      {`${Math.round(percent * 100)}%`}
     </text>
   )
 }
@@ -84,16 +86,19 @@ export default function AllocationPieChart({
   data,
   title,
   className,
+  isLoading,
 }: AllocationPieChartProps) {
-  // Transform data for recharts
-  const chartData = data.map((item, index) => ({
-    name: 'asset_type' in item ? item.asset_type : item.classification,
-    value: item.value_usd,
-    value_usd: item.value_usd,
-    allocation_pct: item.allocation_pct,
-    count: item.count,
-    color: COLORS[index % COLORS.length],
-  }))
+  // Transform data for recharts - memoized to avoid recalculation on every render
+  const chartData = useMemo(() => {
+    return data.map((item, index) => ({
+      name: 'asset_type' in item ? item.asset_type : item.classification,
+      value: Number(item.value_usd),
+      value_usd: Number(item.value_usd),
+      allocation_pct: Number(item.allocation_pct),
+      count: item.count,
+      color: COLORS[index % COLORS.length],
+    }))
+  }, [data])
 
   return (
     <Card className={cn('border-[#15181E] bg-[#15181E]', className)}>
@@ -103,7 +108,14 @@ export default function AllocationPieChart({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {chartData.length > 0 ? (
+        {isLoading ? (
+          <div className="flex h-[300px] items-center justify-center">
+            <div className="text-center">
+              <div className="mb-2 animate-pulse text-4xl">📊</div>
+              <p className="text-muted-foreground text-sm">Cargando datos...</p>
+            </div>
+          </div>
+        ) : chartData.length > 0 ? (
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

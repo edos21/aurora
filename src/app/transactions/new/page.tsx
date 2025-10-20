@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { ArrowLeft, Plus, Calculator } from 'lucide-react'
 import Link from 'next/link'
@@ -36,8 +35,8 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api'
 import { useAssets } from '@/hooks/useAssets'
+import { useCreateTransaction } from '@/hooks/useTransactions'
 import type { TransactionCreate, TransactionType } from '@/types'
 
 // Schema de validación
@@ -45,15 +44,15 @@ const transactionSchema = z.object({
   asset_id: z.string().min(1, 'Selecciona un activo'),
   date: z.string().min(1, 'La fecha es requerida'),
   type: z.enum(['BUY', 'SELL']),
-  quantity: z.coerce
+  quantity: z
     .number({ message: 'La cantidad debe ser un número válido' })
     .positive('La cantidad debe ser mayor a 0')
     .min(0.00000001, 'La cantidad mínima es 0.00000001'),
-  price_per_unit: z.coerce
+  price_per_unit: z
     .number({ message: 'El precio debe ser un número válido' })
     .positive('El precio debe ser mayor a 0')
     .min(0.00000001, 'El precio mínimo es 0.00000001'),
-  total_amount: z.coerce
+  total_amount: z
     .number({ message: 'El total debe ser un número válido' })
     .positive('El total debe ser mayor a 0')
     .min(0.01, 'El total mínimo es 0.01'),
@@ -64,7 +63,7 @@ const transactionSchema = z.object({
       /^[A-Z]{3}$/,
       'La moneda debe estar en formato ISO 4217 (ej: USD, EUR)'
     ),
-  commission: z.coerce
+  commission: z
     .number({ message: 'La comisión debe ser un número válido' })
     .min(0, 'La comisión no puede ser negativa')
     .default(0),
@@ -87,21 +86,20 @@ const commonCurrencies = [
   { value: 'JPY', label: 'JPY - Yen Japonés' },
 ]
 
-// Función helper para formatear la fecha de hoy
 const getTodayDate = () => {
   const today = new Date()
-  return today.toISOString().split('T')[0] // YYYY-MM-DD format
+  return today.toISOString().split('T')[0]
 }
 
 export default function NewTransactionPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Cargar activos
   const { data: assets = [], isLoading: assetsLoading } = useAssets({
     limit: 1000,
   })
+
+  const createTransaction = useCreateTransaction()
 
   const form = useForm<TransactionFormData>({
     defaultValues: {
@@ -118,25 +116,33 @@ export default function NewTransactionPage() {
     mode: 'onChange',
   })
 
-  // Auto-calcular total cuando cambien quantity, price o commission
   const quantity = form.watch('quantity')
   const pricePerUnit = form.watch('price_per_unit')
   const commission = form.watch('commission')
 
   useEffect(() => {
-    if (quantity > 0 && pricePerUnit > 0) {
-      const calculatedTotal = quantity * pricePerUnit + (commission || 0)
+    const qty = Number(quantity)
+    const price = Number(pricePerUnit)
+    const comm = Number(commission) || 0
+
+    if (!isNaN(qty) && !isNaN(price) && qty > 0 && price > 0) {
+      const calculatedTotal = qty * price + comm
       form.setValue('total_amount', Number(calculatedTotal.toFixed(2)))
     }
   }, [quantity, pricePerUnit, commission, form])
 
   const onSubmit = async (values: TransactionFormData) => {
     setError(null)
-    setIsSubmitting(true)
 
     try {
-      // Validar los datos con Zod
-      const validatedData = transactionSchema.parse(values)
+      // Validate with Zod schema
+      const validatedData = transactionSchema.parse({
+        ...values,
+        quantity: Number(values.quantity),
+        price_per_unit: Number(values.price_per_unit),
+        total_amount: Number(values.total_amount),
+        commission: Number(values.commission) || 0,
+      })
 
       const transactionData: TransactionCreate = {
         asset_id: validatedData.asset_id,
@@ -146,20 +152,21 @@ export default function NewTransactionPage() {
         price_per_unit: validatedData.price_per_unit,
         total_amount: validatedData.total_amount,
         currency: validatedData.currency.toUpperCase(),
-        commission: validatedData.commission || 0,
+        commission: validatedData.commission,
         notes: validatedData.notes || undefined,
       }
 
-      await apiClient.post(API_ENDPOINTS.TRANSACTIONS, transactionData)
+      await createTransaction.mutateAsync(transactionData)
 
       toast.success('¡Transacción registrada exitosamente!')
-
-      // Redirigir a la lista de transacciones
       router.push('/transactions')
     } catch (err: any) {
+      // Handle Zod validation errors
       if (err.name === 'ZodError') {
-        // Manejar errores de validación de Zod
-        const errorMessage = err.errors?.[0]?.message || 'Error de validación'
+        const firstError = err.errors?.[0]
+        const errorMessage = firstError
+          ? `${firstError.path.join('.')}: ${firstError.message}`
+          : 'Error de validación'
         setError(errorMessage)
         toast.error(errorMessage)
       } else {
@@ -168,8 +175,6 @@ export default function NewTransactionPage() {
         setError(errorMessage)
         toast.error(errorMessage)
       }
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -507,16 +512,18 @@ export default function NewTransactionPage() {
                 <div className="flex gap-4 pt-4">
                   <Button
                     type="submit"
-                    disabled={isSubmitting || assetsLoading}
+                    disabled={createTransaction.isPending || assetsLoading}
                     className="flex-1 bg-gradient-to-r from-[#38BDF8] to-[#4ADE80] font-semibold text-[#0D0F12] transition-all duration-200 hover:scale-[1.02] hover:from-[#0EA5E9] hover:to-[#22C55E]"
                   >
-                    {isSubmitting ? 'Registrando...' : 'Registrar Transacción'}
+                    {createTransaction.isPending
+                      ? 'Registrando...'
+                      : 'Registrar Transacción'}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => router.push('/transactions')}
-                    disabled={isSubmitting}
+                    disabled={createTransaction.isPending}
                     className="border-[#15181E] text-[#A9B4C4] hover:text-[#E4E8F0]"
                   >
                     Cancelar
